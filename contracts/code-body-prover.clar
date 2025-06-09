@@ -69,6 +69,42 @@
 	)
 )
 
+(define-read-only (calculate-verification-txid
+	(nonce (buff 8))
+	(fee (buff 8))
+	(signature (buff 65))
+	(contract principal)
+	)
+	(begin
+		;; Here we need to check if <contract>::has-successfully-deployed was called
+		;; as the exact next transaction from the same user (nonce + 1)
+		;;
+		;; This transaction can only exist if the contract was deployed, otherwise we get:
+		;; Broadcast error: {
+		;;		error: 'transaction rejected',
+		;;		reason: 'NoSuchContract',
+		;;		txid: '<som TXID>'
+		;; }
+		;; since Stacks does not allow calling functions on non-existing contracts
+		;;
+		;;
+		;; (define-read-only (has-successfully-deployed)
+		;;		(ok true)
+		;; )
+		;;
+		;; TODO: implement on-chain ContractCall TXID calculation
+		;;
+		(asserts! (is-eq tx-version 0x00) err-invalid-length-fee)
+		(ok tx-version)
+	)
+)
+
+(define-private (increment-buff8 (b (buff 8)))
+  (let ((inc-buff (unwrap-panic (to-consensus-buff? (+ (buff-to-int-be b) 1)))))
+		(unwrap-panic (as-max-len? (unwrap-panic (slice? inc-buff u9 u17)) u8))
+  )
+)
+
 ;; Returns (ok true) if the transaction was mined.
 (define-read-only (is-contract-deployed
 	(nonce (buff 8))
@@ -85,5 +121,46 @@
 		proof
 		tx-block-height
 		block-header-without-signer-signatures
+	)
+)
+
+;; Returns (ok true) if the transaction was mined.
+(define-read-only (is-contract-deployed-two-step
+	(nonce (buff 8))
+	(deploy-tx {
+		fee: (buff 8),
+		signature: (buff 65),
+		contract: principal,
+		code-body: (buff 80000),
+		proof: { tx-index: uint, hashes: (list 14 (buff 32)), tree-depth: uint},
+		tx-block-height: uint,
+		block-header-without-signer-signatures: (buff 712)
+	})
+	(verification-tx {
+		fee: (buff 8),
+		signature: (buff 65),
+		contract: principal,
+		proof: { tx-index: uint, hashes: (list 14 (buff 32)), tree-depth: uint},
+		tx-block-height: uint,
+		block-header-without-signer-signatures: (buff 712)
+	})
+	)
+	(begin
+		(try! (contract-call? .clarity-stacks was-tx-mined-compact
+			(try! (calculate-txid nonce (get fee deploy-tx) (get signature deploy-tx) (get contract deploy-tx) (get code-body deploy-tx)))
+			(get proof deploy-tx)
+			(get tx-block-height deploy-tx)
+			(get block-header-without-signer-signatures deploy-tx)
+		))
+		(contract-call? .clarity-stacks was-tx-mined-compact
+			(try! (calculate-verification-txid
+							(increment-buff8 nonce)
+							(get fee verification-tx)
+							(get signature verification-tx)
+							(get contract verification-tx)))
+			(get proof verification-tx)
+			(get tx-block-height verification-tx)
+			(get block-header-without-signer-signatures verification-tx)
+		)
 	)
 )

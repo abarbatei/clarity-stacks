@@ -19,6 +19,17 @@ epoch = 3.1
 path = 'contracts/code-body-prover.clar'
 clarity_version = 3
 epoch = 3.1
+
+[contracts.deployed-trait]
+path = 'contracts/traits/deployed-trait.clar'
+clarity_version = 3
+epoch = 3.1
+
+[contracts.random-contract]
+path = 'contracts/random-contract.clar'
+clarity_version = 3
+epoch = 3.1
+
 [repl.analysis]
 passes = ['check_checker']
 
