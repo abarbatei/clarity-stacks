@@ -127,10 +127,10 @@
 ;; Returns (ok true) if the transaction was mined.
 (define-read-only (is-contract-deployed-two-step
 	(nonce (buff 8))
+	(contract principal)
 	(deploy-tx {
 		fee: (buff 8),
 		signature: (buff 65),
-		contract: principal,
 		code-body: (buff 80000),
 		proof: { tx-index: uint, hashes: (list 14 (buff 32)), tree-depth: uint},
 		tx-block-height: uint,
@@ -139,7 +139,6 @@
 	(verification-tx {
 		fee: (buff 8),
 		signature: (buff 65),
-		contract: principal,
 		proof: { tx-index: uint, hashes: (list 14 (buff 32)), tree-depth: uint},
 		tx-block-height: uint,
 		block-header-without-signer-signatures: (buff 712)
@@ -147,7 +146,7 @@
 	)
 	(begin
 		(try! (contract-call? .clarity-stacks was-tx-mined-compact
-			(try! (calculate-txid nonce (get fee deploy-tx) (get signature deploy-tx) (get contract deploy-tx) (get code-body deploy-tx)))
+			(try! (calculate-txid nonce (get fee deploy-tx) (get signature deploy-tx) contract (get code-body deploy-tx)))
 			(get proof deploy-tx)
 			(get tx-block-height deploy-tx)
 			(get block-header-without-signer-signatures deploy-tx)
@@ -157,7 +156,7 @@
 							(increment-buff8 nonce)
 							(get fee verification-tx)
 							(get signature verification-tx)
-							(get contract verification-tx)))
+							contract))
 			(get proof verification-tx)
 			(get tx-block-height verification-tx)
 			(get block-header-without-signer-signatures verification-tx)
